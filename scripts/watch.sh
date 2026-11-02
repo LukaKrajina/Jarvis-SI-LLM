@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# watch.sh —— Jarvis 数据下载守护（含自愈重启）
+# watch.sh —— Jarvis 数据下载的「尽职保姆」（自带自愈重启，超省心）
 #
-# 每 10 分钟：
-#   1. 若 .download_done 存在 → 下载已全部完成，跳到收尾
-#   2. 若 prepare_data.py download 在跑 → 记录进度
-#   3. 若 download 掉了但未完成 → **自动重启续传**（自愈）
-#   4. 收尾：clean + tier（清洗 + 按 pB 分档，许可禁商用源单独目录）
+# 每 10 分钟巡逻一圈：
+#   1. 若 .download_done 在 → 下载全部完成，直接进入收尾庆祝环节
+#   2. 若 prepare_data.py download 在跑 → 记下进度，夸一句「辛苦了」
+#   3. 若 download 中途打盹了 → **温柔唤醒并自动续传**（自愈，是真爱）
+#   4. 收尾：clean + tier（清洗 + 按 pB 分档，许可禁商用源单独安家）
 #
-# download 内部用 curl -C - 断点续传，重启不丢进度。
+# download 内部用 curl -C - 断点续传，就算被唤醒一百次，进度一分不丢。
 set -uo pipefail
 
 ROOT="/home/lukakrajina/JarvisLearnData"
@@ -18,15 +18,15 @@ TOTAL_GB=32   # 维基 12.6 + C4 3 + 代码 ~8 + 论文 ~1 + 轻小说 0.9 + 源
 log() { echo "[$(date '+%Y-%m-%d %H:%M')] $*" | tee -a "$PROGRESS"; }
 
 start_download() {
-    rm -f "$ROOT/raw/.download_done"     # 重启即视为「未完成」
-    pkill -f "curl.*hf-mirror.com" 2>/dev/null   # 清残留并发 curl
+    rm -f "$ROOT/raw/.download_done"     # 重启即视为「还可再战」
+    pkill -f "curl.*hf-mirror.com" 2>/dev/null   # 请走散落的 curl 先归队
     sleep 1
     cd "$SCRIPT_DIR" && nohup python3 prepare_data.py download >"$ROOT/download.log" 2>&1 &
     log "自愈：重启下载进程 (PID $!)"
 }
 
 while true; do
-    # 已完成标记 → 直接进收尾
+    # 完成标记出现 → 直接进收尾（胜利时刻！）
     if [ -f "$ROOT/raw/.download_done" ]; then
         log "检测到 .download_done，下载已全部完成。"
         break
@@ -50,7 +50,7 @@ while true; do
     sleep 600
 done
 
-# ── 收尾：clean + tier ──────────────────────────────────────────────────
+# ── 收尾：clean + tier（沐浴更衣，分年级编班）───────────────────────────
 log "开始 clean（清洗）+ tier（按 pB 分档）..."
 cd "$SCRIPT_DIR" && python3 prepare_data.py clean >>"$PROGRESS" 2>&1
 python3 prepare_data.py tier  >>"$PROGRESS" 2>&1
@@ -60,4 +60,5 @@ if ls "$ROOT"/manifest/*/train.txt >/dev/null 2>&1; then
 else
     log "分档未生成 train.txt，检查 prepare_data.py 日志。"
 fi
+# 收尾后鞠躬谢幕：watch 这一班岗站完了，辛苦啦！
 log "watch.sh 退出。"

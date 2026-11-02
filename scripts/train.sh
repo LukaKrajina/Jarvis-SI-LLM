@@ -2,7 +2,7 @@
 # train.sh —— Jarvis 1.0 训练脚本（Linux）
 #
 # 用法：
-#   scripts/train.sh [--variant flash|pro|ultra] [--pb 0.5|1.0|3.0|5.0] [--moe] [--data <dir>]
+#   scripts/train.sh [--variant flash|pro|ultra|vision] [--pb 0.5|1.0|3.0|5.0] [--moe] [--data <dir>]
 #
 # 职责：
 #   1. 定位 Ravendrel 运行时（RVDL_ROOT 或相对路径）
@@ -42,8 +42,8 @@ CLI="$RVDL_ROOT/server/out/cli.js"
 
 # ── 校验分型 ─────────────────────────────────────────────────────────────
 case "$VARIANT" in
-  flash|pro|ultra) ;;
-  *) echo "[错误] --variant 必须是 flash|pro|ultra，得到 '$VARIANT'"; exit 1 ;;
+  flash|pro|ultra|vision) ;;
+  *) echo "[错误] --variant 必须是 flash|pro|ultra|vision，得到 '$VARIANT'"; exit 1 ;;
 esac
 CONFIG="$ROOT/configs/$VARIANT.json"
 [[ -f "$CONFIG" ]] || { echo "[错误] 找不到配置 $CONFIG"; exit 1; }
@@ -57,7 +57,13 @@ if [[ ! -d "$DATA_DIR" ]] || [[ -z "$(find "$DATA_DIR" -type f \( -name '*.txt' 
 fi
 
 # ── 编译 Jarvis 模型（.rvdl → .rvdli 加密模块）────────────────────────────
+# 多模态变体（vision）编译 jarvis_vision.rvdl（--moe 时 jarvis_vision_moe.rvdl），
+# 其余分型编译 jarvis_core.rvdl。
 MODEL="$ROOT/models/jarvis_core.rvdl"
+if [[ "$VARIANT" == "vision" ]]; then
+  MODEL="$ROOT/models/jarvis_vision.rvdl"
+  [[ -n "$MOE" ]] && MODEL="$ROOT/models/jarvis_vision_moe.rvdl"
+fi
 OUT_DIR="$ROOT/out"
 mkdir -p "$OUT_DIR"
 echo "[Jarvis] 编译模型 $MODEL ..."

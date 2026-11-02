@@ -1,0 +1,66 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// jarvis_vision_moe.rvdl —— Jarvis Vision MoE 变体（多模态 + 稀疏专家混合）
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// 在 jarvis_vision 的多模态输出上再叠一层 Chimera 的 MoE 稀疏门控
+// （与 jarvis_core_moe 相同的曲率驱动玻尔兹曼软门控）：
+//   · moe_route：曲率（度规）= 路由能量 σ(−g)，靠近无穷远边界切到对偶专家；
+//   · moe_mix：专家 A（原空间）× 专家 B（T-对偶反转 × polymer 铁磁权重）。
+//
+// 专家拓扑由模型 pB 经 numqk/moe.hpp::auto_moe_topology 自动推导
+// （0.5/1pB→4 专家，3pB→18，5pB→32），门控语义与 core_moe 一致。
+
+include "jarvis_vision.rvdl";
+include "../../Chimera/src/chimera_moe.rvdl";
+
+// MoE 多模态入口：Vision 融合输出 → 曲率驱动的稀疏专家混合。
+//
+// p60 是 MoE 专家 A 的线性权重（可学习），p61 是门控温度（soft gate），
+// p62 承载 pB（专家拓扑自动推导），均继承自 jarvis_core 的参数空间。
+export double jarvis_forward_mm_moe(string text, double context, string image_path) {
+    double base = jarvis_forward_mm(text, context, image_path);
+
+    // 曲率（度规）= 路由能量：靠近无穷远边界时切到对偶专家。
+    double g = hyperbolic_metric(base);
+
+    // 专家拓扑由模型 pB 自动推导（p62 承载 pB，不再硬编码 num_experts）
+    double experts = moe_virtual_experts(p62);
+    double groups  = moe_groups(p62);
+
+    // 对偶前向融合：路由出的 top-2 专家（原空间 base 与其对偶 base·p60）
+    // 经 σ(−g) 玻尔兹曼软门控混合（融合由运行时内核统一实现，与 core_moe 一致）。
+    double mixed = dual_fuse(base, base * p60, g, p60);
+
+    // 稀疏调制：激活的是 top-2，按总专家数归一；组数参与调制以反映曲率分箱。
+    if (experts > 2.0) {
+        mixed = mixed * (2.0 / experts) + p61 * (experts - 2.0) / experts;
+    }
+    if (groups > 0.0) {
+        mixed = mixed + p61 * (groups - 1.0) * 0.01;
+    }
+
+    if (mixed > 1.0)  { mixed = 1.0; }
+    if (mixed < -1.0) { mixed = -1.0; }
+    return mixed;
+}
+
+// 协议桥入口（同 jarvis_vision 的 jarvis_forward_mm_i32，MoE 版）：
+// logit ×1000 定点化为 int32，供 rvdl serve 的 Vision 路径跨协议传输。
+export int32 jarvis_forward_mm_moe_i32(string text, double context, string image_path) {
+    double v = jarvis_forward_mm_moe(text, context, image_path);
+    double scaled = v * 1000.0;
+    if (scaled < 0.0) {
+        double pos = -scaled;
+        int32 k = 0;
+        while (k < 1000 && (k * 1.0) < pos) { k = k + 1; }
+        k = k - 1;
+        if (k < 0) { k = 0; }
+        return -k;
+    }
+    int32 k = 0;
+    while (k < 1000 && (k * 1.0) < scaled) { k = k + 1; }
+    k = k - 1;
+    if (k < 0) { k = 0; }
+    if (k > 1000) { k = 1000; }
+    return k;
+}

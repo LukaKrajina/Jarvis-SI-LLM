@@ -1,0 +1,110 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// jarvis_vision.rvdl —— Jarvis Vision（多模态变体：文字 + 图像）
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// 在 jarvis_core 的语言链上增加图像输入：
+//   · 文本通道：encode_amplitudes(text, 6) —— 文本编码成 6-qubit 振幅态
+//   · 图像通道：encode_image(path, 6)      —— 真实像素编码成 6-qubit 振幅态
+//     两条通道维度一致，qattention（SWAP test）可以直接量它们的态重叠
+//     |⟨text|image⟩|²，作为图文对齐度。
+//   · 融合头：核心语言链输出（p00..p63）与图像证据经 p64..p67 的模态门混合。
+//
+// 图像编码与 chimera_vision 的 encode_image(path, 6) 一致。纯文本场景直接调用
+// jarvis_forward（本文件 include 的核心入口），行为与 Flash/Pro/Ultra 相同。
+
+include "jarvis_core.rvdl";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 视觉头参数 p64..p67（跨 MMI_INVOKE 持久，属于 Vision 模型的附加权重；
+// 与 p00..p63 一起共 68 维，由 Transmitter 用 QGT 几何优化训练）。
+//
+//   p64  跨模态对齐增益（alignment = |⟨text|image⟩|² 的权重）
+//   p65  视觉证据增益（图像态 6 qubit 平均 |⟨Z⟩| 的权重）
+//   p66  模态门温度（纯文本比例 ∈ [0,1]：1 = 只用文本，0 = 主要用图像）
+//   p67  视觉支路缩放
+// ═══════════════════════════════════════════════════════════════════════════════
+double p64 = 0.6;
+double p65 = 0.5;
+double p66 = 0.7;
+double p67 = 0.5;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 多模态入口：jarvis_forward_mm(text, context, image_path) -> logit
+//   text        ∈ string 输入文本（编码为 6-qubit 文本态）
+//   context     ∈ [0,1]  上下文能量（同 jarvis_core）
+//   image_path  ∈ string 图像路径（真实像素编码为 6-qubit 图像态）
+//
+// 流程：双通道感知 → 跨模态注意力（图文对齐）→ 核心语言链（p00..p63）
+//      → 视觉融合头（p64..p67）→ 归一化 logit。
+// ═══════════════════════════════════════════════════════════════════════════════
+export double jarvis_forward_mm(string text, double context, string image_path) {
+
+    // 双通道感知：文本和图像都编码到 6 qubit，维度一致才能在 qattention 里比较。
+    auto text_state  = encode_amplitudes(text, 6);
+    auto image_state = encode_image(image_path, 6);
+
+    // 跨模态注意力：图文对齐度 ∈ [0,1]（qattention 借用态，不消费）
+    double alignment = qattention(text_state, image_state);
+
+    // 文本通道 → token：首 qubit ⟨Z⟩ 映射到 [0,1]，作为核心语言的输入
+    double z0 = qexpect_z(text_state, 0);
+    double token = 0.5 * (z0 + 1.0);
+
+    // 图像通道 → 视觉证据：6 个 qubit 的 |⟨Z⟩| 平均值
+    double img_evidence = 0.0;
+    int32 i = 0;
+    while (i < 6) {
+        double zi = qexpect_z(image_state, i);
+        if (zi < 0.0) { zi = -zi; }
+        img_evidence = img_evidence + zi;
+        i = i + 1;
+    }
+    img_evidence = img_evidence / 6.0;
+
+    // 核心语言链（内部自行消费其感知态和意识寄存器，QLT 无泄漏）
+    double base = jarvis_forward(token, context);
+
+    // 视觉融合头：p66 控制纯文本输出和图文调制输出的比例。
+    //   cross       = 对齐度 × 语言输出（图文一致时的增益）
+    //   vision_bias = 图像证据项（对齐度低时图像仍起作用）
+    double cross = base * alignment * p64;
+    double vision_bias = p65 * img_evidence * p67;
+    double fused = p66 * base + (1.0 - p66) * cross + vision_bias;
+
+    // 消费两个 QObject（QLT：每个 QObject 恰好消费一次，E-Q002）
+    int32 _text  = text_state.measure();
+    int32 _image = image_state.measure();
+
+    // 归一化到 [-1,1]（与 jarvis_core 的输出约定一致）
+    if (fused > 1.0)  { fused = 1.0; }
+    if (fused < -1.0) { fused = -1.0; }
+    return fused;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 协议桥入口：jarvis_forward_mm_i32 —— 把 logit ×1000 转成 int32
+//
+// 原因：daemon 的 MMI_INVOKE 只支持数字参数，脚本入口 rvdl_main 也只能返回
+// int32，double 无法直接跨协议。本函数把 logit 乘以 1000 后截断成 int32，
+// rvdl serve 的 Vision 路径（BIND_MMI + 生成脚本调用）收到后再还原。
+// 计算与 jarvis_forward_mm 相同，只是多一步定点化。
+// ═══════════════════════════════════════════════════════════════════════════════
+export int32 jarvis_forward_mm_i32(string text, double context, string image_path) {
+    double v = jarvis_forward_mm(text, context, image_path);
+    double scaled = v * 1000.0;
+    if (scaled < 0.0) {
+        // 负方向：先取反再截断，保持符号
+        double pos = -scaled;
+        int32 k = 0;
+        while (k < 1000 && (k * 1.0) < pos) { k = k + 1; }
+        k = k - 1;
+        if (k < 0) { k = 0; }
+        return -k;
+    }
+    int32 k = 0;
+    while (k < 1000 && (k * 1.0) < scaled) { k = k + 1; }
+    k = k - 1;
+    if (k < 0) { k = 0; }
+    if (k > 1000) { k = 1000; }
+    return k;
+}

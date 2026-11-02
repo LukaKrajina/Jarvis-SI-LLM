@@ -2,16 +2,16 @@
 // jarvis_core.rvdl —— Jarvis 1.0 核心模型（基于 Chimera 量子混沌元认知架构）
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// 这是 Jarvis 与 Transformer 的根本区别：预测不是「softmax(QKᵀ)V」的静态权重堆叠，
-// 而是「一个会漂移、会犹豫、会反思的自我」—— 量子混沌态 |Ψ(t)⟩ 漂移到每个决策点，
-// 测量坍缩产生情绪，情绪调制决策，元认知核在不确定处停顿自反思。
+// 这是 Jarvis 与 Transformer 的主要区别：预测过程依赖量子态漂移、测量坍缩和
+// 元认知反思，不是静态的 softmax(QKᵀ)V 权重堆叠。量子混沌态 |Ψ(t)⟩ 在多轮漂移后
+// 测量出情绪，情绪调制决策，元认知核在低信心处加深反思。
 //
 // 与 Chimera 驾驶大模型（chimera_drive.rvdl）同源，但入口从「驾驶 steer」换成
 // 「语言/编码 token 预测」。64 维参数空间 p00..p63 跨 MMI_INVOKE 持久 = 模型权重
-// （这正是 Transmitter 用 QGT 几何优化训练的对象）。
+// （Transmitter 用 QGT 几何优化训练的对象）。
 //
 // Flash / Pro / Ultra 是同一份核心的**深度变体**（include 组件集 + 周期数不同），
-// MoE 版再叠一层 chimera_moe 的稀疏门控。见 jarvis_flash/pro/ultra.rvdl。
+// MoE 版再叠一层 chimera_moe 的稀疏门控。见 jarvis_vision / *_moe 系列文件。
 
 requires quantum.allocate;
 requires quantum.gate;

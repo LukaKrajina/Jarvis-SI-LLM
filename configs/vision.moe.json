@@ -1,0 +1,16 @@
+{
+  "variant": "vision-moe",
+  "description": "Vision MoE —— 多模态（文字 + 图像）+ 稀疏专家混合（曲率驱动玻尔兹曼门控）。",
+  "model": "../models/jarvis_vision_moe.rvdl",
+  "pb": 1.0,
+  "equivalent_billions": 1000,
+  "moe": true,
+  "moe_topology": "auto",
+  "components": ["perception", "consciousness", "decision", "dream", "metacognition", "vision", "moe"],
+  "cycles": 4,
+  "epochs": 20,
+  "learning_rate": 0.008,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

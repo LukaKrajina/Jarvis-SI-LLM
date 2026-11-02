@@ -18,6 +18,15 @@ port = 9080                                             # rvdl serve 端口（�
 rvdl_root = "/mnt/nvme/Project/Ravendrel"               # 找 server/out/cli.js
 timeout_ms = 300000
 
+# ── .rvdlm 多模态（Vision：文字 + 图像）───────────────────────────────
+# [providers.jarvis_vision]
+# type = "rvdlm"
+# model_path = "/mnt/nvme/Project/Jarvis/out/jarvis_vision_1p0.rvdlm"
+# vision = true                  # 上报 vision: true（图像编码走 encode_image 振幅编码）
+# port = 9081                    # 每个 rvdlm provider 独立端口（避免和上面冲突）
+# rvdl_root = "/mnt/nvme/Project/Ravendrel"
+# timeout_ms = 300000
+
 # ── .gguf 降级（可选，给 OpenCode 之类传统运行时）────────────────────
 # [providers.jarvis_gguf]
 # type = "openai_compatible"

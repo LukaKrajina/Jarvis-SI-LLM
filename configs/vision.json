@@ -1,0 +1,15 @@
+{
+  "variant": "vision",
+  "description": "Vision —— 多模态理解（文字 + 图像）。双通道感知场 + 跨模态量子注意力融合。",
+  "model": "../models/jarvis_vision.rvdl",
+  "pb": 1.0,
+  "equivalent_billions": 1000,
+  "moe": false,
+  "components": ["perception", "consciousness", "decision", "dream", "metacognition", "vision"],
+  "cycles": 4,
+  "epochs": 20,
+  "learning_rate": 0.008,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

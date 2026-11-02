@@ -2,7 +2,7 @@
 REM train.bat —— Jarvis 1.0 训练脚本（Windows）
 REM
 REM 用法：
-REM   scripts\train.bat [--variant flash|pro|ultra] [--pb 0.5|1.0|3.0|5.0] [--moe] [--data <dir>]
+REM   scripts\train.bat [--variant flash|pro|ultra|vision] [--pb 0.5|1.0|3.0|5.0] [--moe] [--data <dir>]
 setlocal enabledelayedexpansion
 
 set SCRIPT_DIR=%~dp0
@@ -30,8 +30,8 @@ if not exist "%CLI%" (
   exit /b 1
 )
 
-if /i not "%VARIANT%"=="flash" if /i not "%VARIANT%"=="pro" if /i not "%VARIANT%"=="ultra" (
-  echo [错误] --variant 必须是 flash^|pro^|ultra，得到 '%VARIANT%'
+if /i not "%VARIANT%"=="flash" if /i not "%VARIANT%"=="pro" if /i not "%VARIANT%"=="ultra" if /i not "%VARIANT%"=="vision" (
+  echo [错误] --variant 必须是 flash^|pro^|ultra^|vision，得到 '%VARIANT%'
   exit /b 1
 )
 set CONFIG=%ROOT%\configs\%VARIANT%.json
@@ -50,7 +50,10 @@ if not defined HASDATA (
 )
 
 REM 编译 Jarvis 模型
+REM 多模态变体（vision）编译 jarvis_vision.rvdl（--moe 时 jarvis_vision_moe.rvdl）
 set MODEL=%ROOT%\models\jarvis_core.rvdl
+if /i "%VARIANT%"=="vision" set MODEL=%ROOT%\models\jarvis_vision.rvdl
+if /i "%VARIANT%"=="vision" if defined MOE set MODEL=%ROOT%\models\jarvis_vision_moe.rvdl
 set OUT_DIR=%ROOT%\out
 if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
 echo [Jarvis] 编译模型 %MODEL% ...
