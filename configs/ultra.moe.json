@@ -1,0 +1,16 @@
+{
+  "variant": "ultra-moe",
+  "description": "Ultra MoE —— 全量能力 + 稀疏专家混合（256 组件按曲率路由稀疏激活）。",
+  "model": "../models/jarvis_core_moe.rvdl",
+  "pb": 5.0,
+  "equivalent_billions": 5000,
+  "moe": true,
+  "moe_topology": "auto",
+  "components": ["all-256", "moe"],
+  "cycles": 4,
+  "epochs": 40,
+  "learning_rate": 0.005,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

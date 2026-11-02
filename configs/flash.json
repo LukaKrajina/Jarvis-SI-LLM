@@ -1,0 +1,15 @@
+{
+  "variant": "flash",
+  "description": "Flash —— 快速响应、日常编码。精简组件集 + 浅深度。",
+  "model": "../models/jarvis_core.rvdl",
+  "pb": 1.0,
+  "equivalent_billions": 1000,
+  "moe": false,
+  "components": ["perception", "consciousness", "decision", "dream", "metacognition"],
+  "cycles": 2,
+  "epochs": 10,
+  "learning_rate": 0.01,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

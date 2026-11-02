@@ -1,0 +1,25 @@
+# OpenButler 配置示例：用 .rvdlm 加载 Jarvis（释放 Chimera 全部能力）
+#
+# 把本文件内容合并进 ~/.openbutler/config.toml（或项目内 .openbutler/config.toml）。
+#
+# 关键区别：
+#   type = "rvdlm"    → 原生 .rvdlm，architecture=chimera，释放全部机制
+#                        （量子混沌态 / 情绪测量 / 演化世界 / 元认知反思）
+#   type = "openai_compatible" + .gguf → 传统运行时，architecture=standard（降级）
+
+[model]
+default = "jarvis:jarvis_flash_1p0"
+
+# ── .rvdlm 原生（全能力）──────────────────────────────────────────────
+[providers.jarvis]
+type = "rvdlm"                                          # 本地 .rvdlm provider
+model_path = "/mnt/nvme/Project/Jarvis/out/jarvis_flash_1p0.rvdlm"
+port = 9080                                             # rvdl serve 端口（默认 9080）
+rvdl_root = "/mnt/nvme/Project/Ravendrel"               # 找 server/out/cli.js
+timeout_ms = 300000
+
+# ── .gguf 降级（可选，给 OpenCode 之类传统运行时）────────────────────
+# [providers.jarvis_gguf]
+# type = "openai_compatible"
+# base_url = "http://127.0.0.1:8080/v1"                 # llama.cpp 的 OpenAI 兼容端点
+# api_key = ""

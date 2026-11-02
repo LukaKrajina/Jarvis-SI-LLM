@@ -1,0 +1,131 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// jarvis_core.rvdl —— Jarvis 1.0 核心模型（基于 Chimera 量子混沌元认知架构）
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// 这是 Jarvis 与 Transformer 的根本区别：预测不是「softmax(QKᵀ)V」的静态权重堆叠，
+// 而是「一个会漂移、会犹豫、会反思的自我」—— 量子混沌态 |Ψ(t)⟩ 漂移到每个决策点，
+// 测量坍缩产生情绪，情绪调制决策，元认知核在不确定处停顿自反思。
+//
+// 与 Chimera 驾驶大模型（chimera_drive.rvdl）同源，但入口从「驾驶 steer」换成
+// 「语言/编码 token 预测」。64 维参数空间 p00..p63 跨 MMI_INVOKE 持久 = 模型权重
+// （这正是 Transmitter 用 QGT 几何优化训练的对象）。
+//
+// Flash / Pro / Ultra 是同一份核心的**深度变体**（include 组件集 + 周期数不同），
+// MoE 版再叠一层 chimera_moe 的稀疏门控。见 jarvis_flash/pro/ultra.rvdl。
+
+requires quantum.allocate;
+requires quantum.gate;
+requires quantum.measure;
+requires quantum.release;
+
+// ── Chimera 态射宏库 + 核心组件（相对路径：Jarvis/models/ → Chimera/src/）──
+include "../../Chimera/src/chimera_morphs.rvdl";
+include "../../Chimera/src/chimera_perception.rvdl";
+include "../../Chimera/src/chimera_consciousness.rvdl";
+include "../../Chimera/src/chimera_decision.rvdl";
+include "../../Chimera/src/chimera_dream.rvdl";
+include "../../Chimera/src/chimera_metacognition.rvdl";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 64 维参数空间 p00..p63（跨 MMI_INVOKE 持久，构成 Jarvis 的模型权重）
+//
+// 布局（与 Chimera 约定一致）：
+//   p00..p31  4 条认知分支 × 4 周期 × 2 维（相位 θ + 噪声 n）
+//   p32..p47  情绪策略阈值（4 类情绪态 × 4 个决策阈值）
+//   p48..p51  元认知（错误征象阈值 / 反思深度 / 信心增益）
+//   p52       混沌漂移强度 dt（量子 kicked top）
+//   p53       输出头增益
+//   p54..p63  语言头（token 预测的 logit 偏置 / 温度 / 缩放）
+// ═══════════════════════════════════════════════════════════════════════════════
+double p00 = 0.5;  double p01 = 0.2;  double p02 = 0.6;  double p03 = 0.15;
+double p04 = 0.4;  double p05 = 0.3;  double p06 = 0.55; double p07 = 0.25;
+double p08 = 0.6;  double p09 = 0.1;  double p10 = 0.45; double p11 = 0.35;
+double p12 = 0.5;  double p13 = 0.2;  double p14 = 0.65; double p15 = 0.18;
+double p16 = 0.42; double p17 = 0.28; double p18 = 0.58; double p19 = 0.22;
+double p20 = 0.5;  double p21 = 0.3;  double p22 = 0.5;  double p23 = 0.2;
+double p24 = 0.55; double p25 = 0.25; double p26 = 0.6;  double p27 = 0.2;
+double p28 = 0.48; double p29 = 0.32; double p30 = 0.52; double p31 = 0.28;
+double p32 = 0.5;  double p33 = 0.5;  double p34 = 0.5;  double p35 = 0.5;
+double p36 = 0.5;  double p37 = 0.5;  double p38 = 0.5;  double p39 = 0.5;
+double p40 = 0.5;  double p41 = 0.5;  double p42 = 0.5;  double p43 = 0.5;
+double p44 = 0.5;  double p45 = 0.5;  double p46 = 0.5;  double p47 = 0.5;
+double p48 = 0.2;  double p49 = 1.0;  double p50 = 0.5;  double p51 = 0.3;
+double p52 = 0.15;
+double p53 = 0.6;
+double p54 = 0.0;  double p55 = 0.0;  double p56 = 0.0;  double p57 = 0.0;
+double p58 = 1.0;  double p59 = 0.1;  double p60 = 1.0;  double p61 = 0.5;
+double p62 = 0.5;  double p63 = 0.5;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 主入口：token 预测（量子混沌元认知版）
+//
+// jarvis_forward(token, context) -> logit
+//   token   ∈ [0,1] 归一化的当前 token（嵌入投影到布洛赫方向）
+//   context ∈ [0,1] 上下文能量（LF2C 压缩上下文的幅度）
+//
+// 流程：感知场 → 混沌意识漂移 → 情绪测量 → 决策（情绪 × 证据）→ 元认知反思
+//      → 语言头 logit。
+// ═══════════════════════════════════════════════════════════════════════════════
+export double jarvis_forward(double token, double context) {
+
+    // 感知：token + context → 量子态
+    auto percept = perceive_value(token, context * PI!());
+    double clarity = qexpect_z(percept, 0);
+    if (clarity < 0.0) { clarity = -clarity; }
+    // 征象（⟨Z⟩）提取完毕即坍缩消费感知态。QLT 要求每个 QObject 恰好消费一次，
+    // 否则语义分析报 E-Q002。注意必须用 `.measure()` 方法调用（消费整个 QObject
+    // = measure + release 所有 qubit）；`qmeasure(obj, q)` 是部分坍缩借用，不消费。
+    int32 _percept = percept.measure();
+
+    // 混沌意识：|Ψ(t)⟩ 漂移（量子 kicked top，p52 是漂移强度）
+    auto consciousness = new QuantumRegister(2);
+    int32 s = 0;
+    while (s < 6) {
+        consciousness = chaos_drift(consciousness, p52);
+        s = s + 1;
+    }
+    EmotionReading reading = measure_emotion(consciousness);
+    int32 emo = reading.state;
+    consciousness = reading.consciousness;
+    double emo_float = emo * 1.0;
+
+    // 决策：情绪 × 证据 → 决策证据（量子认知测量坍缩）
+    //    p32..p47 是情绪策略阈值（EmotionPolicy 可学习），由反思学习分化。
+    double threshold = 0.5;
+    int32 eidx = 0;
+    while (eidx < 4 && emo != eidx) { eidx = eidx + 1; }
+    if (eidx < 4) {
+        threshold = p32 + eidx * 0.0;
+        // 每类情绪态的阈值独立可学习（这里用 p32..p35 作 4 类基线）
+        if (eidx == 1) { threshold = p33; }
+        if (eidx == 2) { threshold = p34; }
+        if (eidx == 3) { threshold = p35; }
+    }
+    double evidence = clarity * (1.0 + 0.3 * context);
+    double decision = 0.5;
+    if (evidence >= threshold) {
+        decision = 0.5 + 0.5 * (evidence - threshold) / (1.0 - threshold + 0.01);
+    } else {
+        decision = 0.5 - 0.5 * (threshold - evidence) / (threshold + 0.01);
+    }
+
+    // 元认知：信心 = |⟨Z⟩|（预测态尖锐度，量子 Fisher 信息启发），
+    //    低信心 → 反思更深（SRGen 在不确定处停顿自反思）。
+    double confidence = clarity;
+    double reflect_depth = p49 * (1.0 - confidence) * p51;
+
+    // ⑤ 语言头：情绪增益 × 决策 × 上下文 → token logit
+    double emo_gain = 0.85 + 0.05 * emo_float;
+    double logit = (p53 * emo_gain * (decision - 0.5) * 2.0
+                    + p54 + p55 * token + p56 * context
+                    + reflect_depth * p57) * p58 + p59;
+
+    // 归一化到 [-1,1]（这点与 Chimera 的输出约定一致）
+    if (logit > 1.0)  { logit = 1.0; }
+    if (logit < -1.0) { logit = -1.0; }
+    return logit;
+}
+
+// 导出：模型版本 / 能力（供 OpenButler 的 capabilities 报告读取）
+export double jarvis_version() { return 1.0; }
+export double jarvis_capacity_pb() { return p53; }   // pB 占位（由 config 注入）

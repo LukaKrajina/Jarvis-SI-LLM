@@ -1,0 +1,290 @@
+; ModuleID = 'rvdl_module'
+source_filename = "rvdl_script.rvdl"
+
+; --- QIR Standard Library ---
+%Qubit = type opaque
+%QObject = type opaque
+%QModel = type opaque
+%QReservoir = type opaque
+; --- 晶格数组类型（lattice<T, B>，吸收 Futhark/Remora/Rust）---
+%Lattice = type opaque
+
+
+declare %QObject* @rvdl_create_DiracState(i32)
+declare %QObject* @rvdl_create_BellState()
+declare %QObject* @rvdl_create_QuantumRegister(i32)
+declare %QObject* @rvdl_create_basis_state(double, double, i32)
+declare %Qubit* @__quantum__rt__qubit_allocate()
+declare void @__quantum__rt__qubit_release(%Qubit*)
+declare i32 @__quantum__qis__measure_int(%Qubit*)
+
+; --- 扩展量子门（论文3 Hadamard/QFT/MUB + 论文5 Yang-Baxter braid）---
+declare void @__quantum__qis__h(%Qubit*)
+declare void @__quantum__qis__x(%Qubit*)
+declare void @__quantum__qis__y(%Qubit*)
+declare void @__quantum__qis__z(%Qubit*)
+declare void @__quantum__qis__s(%Qubit*)
+declare void @__quantum__qis__t(%Qubit*)
+declare void @__quantum__qis__rz(double, %Qubit*)
+declare void @__quantum__qis__rx(double, %Qubit*)
+declare void @__quantum__qis__ry(double, %Qubit*)
+declare void @__quantum__qis__cnot(%Qubit*, %Qubit*)
+declare void @__quantum__qis__toffoli(%Qubit*, %Qubit*, %Qubit*)
+declare void @__quantum__qis__swap(%Qubit*, %Qubit*)
+declare void @__quantum__qis__qft(i32)
+declare void @__quantum__qis__iqft(i32)
+declare void @__quantum__qis__cqft(%Qubit*, i32)
+declare void @__quantum__qis__braid(%Qubit*, %Qubit*)
+declare void @__quantum__qis__cbraid(%Qubit*, %Qubit*, %Qubit*)
+; --- 受控门（可逆编织 @[steer]：cx/ch/crz/cswap）---
+declare void @__quantum__qis__cx(%Qubit*, %Qubit*)
+declare void @__quantum__qis__ch(%Qubit*, %Qubit*)
+declare void @__quantum__qis__crz(%Qubit*, %Qubit*, double)
+declare void @__quantum__qis__cswap(%Qubit*, %Qubit*, %Qubit*)
+declare void @__quantum__qis__c_toffoli(%Qubit*, %Qubit*, %Qubit*, %Qubit*)
+declare void @__quantum__qis__apply_noise(%Qubit*, i32, double)
+declare i32 @__quantum__qis__measure_basis(%Qubit*, i8)
+declare i32 @rvdl_measure_object(%QObject*)
+declare %QObject* @rvdl_extract_qubit(%QObject*, i32)
+declare void @rvdl_release_object(%QObject*)
+
+; --- QML&QKM Native Trampolines ---
+declare %QObject* @rvdl_encode_text(i8*)
+declare %QObject* @rvdl_encode_amplitudes(i8*, i32)
+declare %QObject* @rvdl_encode_image(i8*, i32)
+declare %QObject* @rvdl_encode_adaptive(i8*)
+declare %QModel* @rvdl_qlm_invoke(%QObject*, i32, double)
+declare void @rvdl_qkm_export(%QModel*, i8*)
+
+; --- Ravendrel AI Standard Library ABI ---
+declare %QModel* @rvdl_qlm_load(i8*)
+declare void @rvdl_qlm_forward(%QModel*, %QObject*)
+declare %QObject* @rvdl_encode_string(i8*)
+declare i8* @rvdl_decode_string(%QObject*)
+
+; --- QBNS Mind-Controlled Programming Trampolines ---
+declare %QObject* @rvdl_mind_read(i8*)
+declare void @rvdl_mind_train(%QObject*, i32, double)
+declare void @rvdl_mind_feedback(%QObject*)
+
+; --- VedaROS QLM Trampolines ---
+declare void @rvdl_veda_qlm_train(%QObject*, i32, double)
+
+; --- QRC Quantum Reservoir ABI ---
+declare %QReservoir* @rvdl_qrc_new(i32, i32)
+declare %QReservoir* @rvdl_qrc_new_ex(i32, i32, i32)
+declare void @rvdl_qrc_train(%QReservoir*, i32, double)
+declare void @rvdl_qrc_train_ex(%QReservoir*, i32, double, double*, double*, i32, i32, i32)
+declare %QObject* @rvdl_qrc_probe(%QReservoir*, %QObject*)
+declare %QObject* @rvdl_qrc_predict(%QReservoir*, %QObject*)
+declare void @rvdl_qrc_release(%QReservoir*)
+
+; --- TQNF Topological Quantum Neural Field ABI ---
+declare i32 @rvdl_dla_dim(i8*, i32)
+declare double @rvdl_qstate_entropy(%QObject*)
+declare double @rvdl_qstate_fidelity(%QObject*, %QObject*)
+declare double @rvdl_qstate_purity(%QObject*)
+declare double @rvdl_qstate_linear_entropy(%QObject*)
+declare double @rvdl_qstate_renyi_entropy(%QObject*, double)
+declare double @rvdl_math_dot(double*, double*, i32)
+declare double @rvdl_math_norm(double*, i32)
+declare double @rvdl_qattention(%QObject*, %QObject*)
+declare double @rvdl_shannon4(i32, i32, i32, i32)
+declare double @rvdl_shannon8(i32, i32, i32, i32, i32, i32, i32, i32)
+declare void @rvdl_qgate_h(%QObject*, i32)
+declare void @rvdl_qgate_x(%QObject*, i32)
+declare void @rvdl_qgate_rz(%QObject*, i32, double)
+declare void @rvdl_qgate_cnot(%QObject*, i32, i32)
+declare double @rvdl_qexpect_z(%QObject*, i32)
+declare i32 @rvdl_qmeasure(%QObject*, i32)
+declare i32 @rvdl_qobj_num_qubits(%QObject*)
+declare void @rvdl_qgate_cnot_pair(%QObject*, i32, %QObject*, i32)
+
+; --- Retrocausal Capacity (quantum channel back-in-time ability) ---
+declare double @rvdl_retrocausal_imax(i32, double)
+declare double @rvdl_retrocausal_idoe(i32, double)
+declare double @rvdl_retrocausal_q_capacity(i32, double)
+declare double @rvdl_retrocausal_c_capacity(i32, double)
+declare double @rvdl_retrocausal_q_one_shot(i32, double, double)
+declare double @rvdl_retrocausal_gain(i32, double)
+declare double @rvdl_retrocausal_deformed(i32, double, double)
+
+; --- Retrocausal CTC (tachyon KK doubled-dimension closed timelike curve) ---
+declare double @rvdl_retrocausal_ctc_q_capacity(i32, double, double, double)
+declare double @rvdl_retrocausal_ctc_c_capacity(i32, double, double, double)
+declare double @rvdl_retrocausal_ctc_gain(i32, double, double, double)
+declare double @rvdl_retrocausal_ctc_dephasing(double)
+
+; --- Non-Euclidean hypersurface geodesic primitives ---
+declare double @rvdl_geodesic_distance(%QObject*, %QObject*)
+declare double @rvdl_inversion(double)
+declare double @rvdl_hyperbolic_metric(double)
+declare double @rvdl_hyperbolic_distance(double, double)
+
+; --- Other ---
+declare double @rvdl_surrogate(double, double, double)
+declare double @rvdl_tanh_quantize(double, double, i32)
+declare double @rvdl_lif_step(double, double, double, double)
+declare double @rvdl_mellowmax2(double, double, double)
+declare double @rvdl_logsumexp2(double, double, double)
+declare double @rvdl_boltzmann2(double, double, double)
+declare double @rvdl_tnorm_luk(double, double)
+declare double @rvdl_tnorm_prod(double, double)
+declare double @rvdl_tnorm_godel(double, double)
+declare double @rvdl_polymer_weight(double, double, double)
+declare double @rvdl_polymer_mix_bound(double, double)
+declare double @rvdl_moe_groups(double)
+declare double @rvdl_moe_experts_per(double)
+declare double @rvdl_moe_virtual_experts(double)
+declare double @rvdl_moe_savings(double)
+declare double @rvdl_curvature_gate(double)
+declare double @rvdl_dual_fuse(double, double, double, double)
+
+; --- 晶格数组 ABI（lattice<T, B>，首版 int32 元素 / 1D-2D）---
+declare %Lattice* @rvdl_lattice_new(i32, i32, i32, i32)
+declare void @rvdl_lattice_free(%Lattice*)
+declare i32 @rvdl_lattice_ref(%Lattice*, i32, i32)
+declare void @rvdl_lattice_set(%Lattice*, i32, i32, i32)
+declare i32 @rvdl_lattice_rank(%Lattice*)
+declare i32 @rvdl_lattice_size(%Lattice*, i32)
+declare i32 @rvdl_lattice_boundary(%Lattice*)
+
+; --- 经典 GUI / 图形引擎 ABI（cgui_* / cgfx_*）---
+declare i32 @rvdl_cgui_init(i32, i32, i8*)
+declare i32 @rvdl_cgui_should_close()
+declare void @rvdl_cgui_begin_frame()
+declare void @rvdl_cgui_end_frame()
+declare i32 @rvdl_cgui_button(i8*)
+declare void @rvdl_cgui_text(i8*)
+declare void @rvdl_cgui_text_int(i32)
+declare void @rvdl_cgui_beep(i32, i32)
+declare i32 @rvdl_cgui_width()
+declare i32 @rvdl_cgui_height()
+declare void @rvdl_cgui_panel(i32, i32, i32, i32, i8*)
+declare void @rvdl_cgui_panel_end()
+declare void @rvdl_cgui_row(i32, i32)
+declare i32 @rvdl_cgui_mouse_x()
+declare i32 @rvdl_cgui_mouse_y()
+declare i32 @rvdl_cgui_mouse_left_clicked()
+declare void @rvdl_cgfx_rect(i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_line(i32, i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_polyline(i32*, i32, i32, i32)
+declare void @rvdl_cgfx_ellipse(i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_triangle(i32, i32, i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_rect_a(i32, i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_line_a(i32, i32, i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_polyline_a(i32*, i32, i32, i32, i32)
+declare void @rvdl_cgfx_ellipse_a(i32, i32, i32, i32, i32, i32)
+declare void @rvdl_cgfx_triangle_a(i32, i32, i32, i32, i32, i32, i32, i32)
+
+; --- QCOS Syscall ABI + Heap ---
+declare i32 @rvdl_sys_call(i32, i32, i32, i32)
+declare double @rvdl_sys_calld(i32, double, double)
+declare void @rvdl_sys_log(i32, i8*)
+declare i32 @rvdl_sys_logi(i32, i32)
+declare i8* @rvdl_gc_alloc(i64)
+declare i8* @rvdl_sys_callp(i32, i64, i64, i64)
+declare void @rvdl_gc_free(i8*)
+; --- 字符串遍历 / libc 子集 ---
+declare i32 @strlen(i8*)
+declare i8* @malloc(i64)
+declare void @free(i8*)
+declare i8* @memset(i8*, i32, i64)
+declare i8* @memcpy(i8*, i8*, i64)
+declare i32 @kglobals_addr()
+
+; --- QMS 数值内核 ---
+declare double @rvdl_qms_gap(i32, double, double)
+declare double @rvdl_mix_bound(double, double, double)
+declare double @rvdl_qms_conc(double, double)
+
+; --- QChain 量子区块链 ABI ---
+declare i8* @rvdl_qchain_wallet()
+declare i64 @rvdl_qchain_balance(i8*)
+declare void @rvdl_qchain_mint(i8*, i64)
+declare i32 @rvdl_qchain_transfer(i8*, i8*, i64)
+declare i32 @rvdl_qchain_mine()
+declare i32 @rvdl_qchain_height()
+declare i32 @rvdl_qchain_verify()
+declare i8* @rvdl_qchain_qkd(i32)
+declare i32 @rvdl_qchain_qdba(i32)
+declare %QObject* @rvdl_qchain_coin_mint(i32)
+declare i32 @rvdl_qchain_coin_verify(%QObject*)
+
+; --- QChain 密码原语 / 抗超时空 / 时空加密 ABI ---
+declare i8* @rvdl_qchain_sha3(i8*)
+declare i8* @rvdl_qchain_hmac(i8*, i8*)
+declare i8* @rvdl_qchain_hash_unicode(i8*)
+declare i8* @rvdl_qchain_sign(i8*)
+declare i32 @rvdl_qchain_sign_verify(i8*, i8*)
+declare i8* @rvdl_qchain_sign_pubkey()
+declare i8* @rvdl_qchain_mlkem_encaps(i8*)
+declare i8* @rvdl_qchain_mlkem_decaps(i8*, i8*)
+declare i32 @rvdl_qchain_causal_verify()
+declare i8* @rvdl_qchain_cipher_encrypt(i64, i8*)
+declare i8* @rvdl_qchain_cipher_decrypt(i64, i8*)
+
+; --- 多维标签函数执行拓扑（@layer）调度 ABI ---
+declare i32 @rvdl_runtime_run_topology(i8*)
+; --- 并发线程（spawn）ABI ---
+declare void @rvdl_spawn(i8*, i8*)
+
+
+define i32 @rvdl_main() {
+entry:
+ %b_ptr_1 = alloca double
+ %e_ptr_2 = alloca double
+ %r_ptr_3 = alloca i32
+ %logic_ptr_7 = alloca i1
+ %1 = call double @rvdl_boltzmann2(double 1.0, double 0.0, double 0.0)
+ store double %1, double* %b_ptr_1
+ %2 = call double @rvdl_moe_virtual_experts(double 5.0)
+ store double %2, double* %e_ptr_2
+ store i32 0, i32* %r_ptr_3
+ %3 = load double, double* %b_ptr_1
+ %4 = fcmp ogt double %3, 0.4
+ br i1 %4, label %logic_eval_10, label %logic_short_9
+
+logic_short_9:
+ store i1 false, i1* %logic_ptr_7
+ br label %logic_end_8
+
+logic_eval_10:
+ %5 = load double, double* %b_ptr_1
+ %6 = fcmp olt double %5, 0.6
+ store i1 %6, i1* %logic_ptr_7
+ br label %logic_end_8
+
+logic_end_8:
+ %7 = load i1, i1* %logic_ptr_7
+ br i1 %7, label %if_then_4, label %if_after_6
+
+if_then_4:
+ %8 = load i32, i32* %r_ptr_3
+ %9 = add i32 %8, 10
+ store i32 %9, i32* %r_ptr_3
+ br label %if_after_6
+
+if_after_6:
+ %10 = load double, double* %e_ptr_2
+ %11 = fcmp ogt double %10, 31.0
+ br i1 %11, label %if_then_11, label %if_after_13
+
+if_then_11:
+ %12 = load i32, i32* %r_ptr_3
+ %13 = add i32 %12, 100
+ store i32 %13, i32* %r_ptr_3
+ br label %if_after_13
+
+if_after_13:
+ %14 = load i32, i32* %r_ptr_3
+ ret i32 %14
+}
+; --- 多维标签函数执行拓扑（@layer）---
+@rvdl_topology_json = private unnamed_addr constant [186 x i8] c"{\22shape\22:{\22time\22:1,\22thread\22:1,\22coord\22:[1]},\22blocks\22:[{\22name\22:\22rvdl_main\22,\22time\22:0,\22thread\22:0,\22coord\22:[0],\22cost\22:1,\22deadline\22:null}],\22callGraph\22:[],\22shuttleLinks\22:[],\22trackingScopes\22:[]}\00", align 1
+
+define i32 @rvdl_topology_entry() {
+entry:
+  %0 = call i32 @rvdl_runtime_run_topology(i8* getelementptr inbounds ([186 x i8], [186 x i8]* @rvdl_topology_json, i64 0, i64 0))
+  ret i32 %0
+}

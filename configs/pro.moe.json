@@ -1,0 +1,16 @@
+{
+  "variant": "pro-moe",
+  "description": "Pro MoE —— 深度推理 + 稀疏专家混合。",
+  "model": "../models/jarvis_core_moe.rvdl",
+  "pb": 3.0,
+  "equivalent_billions": 3000,
+  "moe": true,
+  "moe_topology": "auto",
+  "components": ["perception", "consciousness", "decision", "dream", "metacognition", "attention", "memory", "retrieval", "loss", "moe"],
+  "cycles": 4,
+  "epochs": 20,
+  "learning_rate": 0.008,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

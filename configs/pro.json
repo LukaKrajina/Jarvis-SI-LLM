@@ -1,0 +1,15 @@
+{
+  "variant": "pro",
+  "description": "Pro —— 深度推理、复杂工程。完整组件集 + 中深度。",
+  "model": "../models/jarvis_core.rvdl",
+  "pb": 3.0,
+  "equivalent_billions": 3000,
+  "moe": false,
+  "components": ["perception", "consciousness", "decision", "dream", "metacognition", "attention", "memory", "retrieval", "loss"],
+  "cycles": 4,
+  "epochs": 20,
+  "learning_rate": 0.008,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

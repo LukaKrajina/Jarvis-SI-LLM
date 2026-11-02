@@ -1,0 +1,52 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// jarvis_core_moe.rvdl —— Jarvis 1.0 MoE 变体（稀疏专家混合）
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// 在 jarvis_core 的量子混沌元认知基础上，叠一层 Chimera 的 MoE 稀疏门控：
+//   · moe_route：曲率驱动的玻尔兹曼软门控 σ(−g)——度规（曲率）即门控能量，
+//     靠近无穷远边界时自动切到对偶专家；
+//   · moe_mix：专家 A（原空间线性）× 专家 B（T-对偶反转 × polymer 铁磁权重）。
+//
+// 对比全激活版（jarvis_core）：全激活版 256 组件每帧全量执行；MoE 版按曲率
+// 路由稀疏激活。专家结构**不再硬编码**——由模型 pB 经 numqk/moe.hpp 的
+// auto_moe_topology 自动推导（组 G=曲率分箱 × 组内 K，乘积键路由 + 因子化底座，
+// 物化成本 O(G+K) 而非 O(G×K)）：0.5/1pB→4 专家，3pB→18，5pB→32。
+//
+// include jarvis_core.rvdl 拿到：参数空间 p00..p63、组件链、jarvis_forward。
+// 这里只追加 chimera_moe 的稀疏混合入口 jarvis_forward_moe。
+
+include "jarvis_core.rvdl";
+include "../../Chimera/src/chimera_moe.rvdl";
+
+// MoE 入口：core 的量子混沌元认知输出 → 曲率驱动的稀疏专家混合。
+//
+// p60 是 MoE 专家 A 的线性权重（可学习），p61 是门控温度（soft gate）。
+export double jarvis_forward_moe(double token, double context) {
+    double base = jarvis_forward(token, context);
+
+    // 曲率（度规）= 路由能量：靠近无穷远边界时切到对偶专家。
+    double g = hyperbolic_metric(base);
+
+    // 专家拓扑**由模型 pB 自动推导**（p62 承载 pB），不再硬编码 num_experts：
+    //   0.5pB→4、1pB→4、3pB→18、5pB→32（见 numqk/moe.hpp::auto_moe_topology）
+    double experts = moe_virtual_experts(p62);
+    double groups  = moe_groups(p62);
+
+    // 对偶前向融合：路由出的 top-2 专家（原空间 base 与其对偶 base·p60）
+    // 经 σ(−g) 玻尔兹曼软门控混合。对偶语义（T-对偶反转 × polymer 铁磁权重）
+    // 与 chimera_moe 一致，但融合由运行时内核统一实现，而非模型层手写组合式。
+    double mixed = dual_fuse(base, base * p60, g, p60);
+
+    // 稀疏调制：激活的是 top-2，按总专家数归一（专家越多，单路贡献越小）；
+    // 组数参与调制以反映曲率分箱带来的 regime 细分。
+    if (experts > 2.0) {
+        mixed = mixed * (2.0 / experts) + p61 * (experts - 2.0) / experts;
+    }
+    if (groups > 0.0) {
+        mixed = mixed + p61 * (groups - 1.0) * 0.01;
+    }
+
+    if (mixed > 1.0)  { mixed = 1.0; }
+    if (mixed < -1.0) { mixed = -1.0; }
+    return mixed;
+}

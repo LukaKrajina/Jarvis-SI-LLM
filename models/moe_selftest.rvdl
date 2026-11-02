@@ -1,0 +1,30 @@
+// moe_selftest.rvdl —— MoE 对偶融合运行时自检
+//
+// 验证 numqk/moe.hpp 通过 MoeAbi.hpp 暴露给 rvdl 的内建函数：
+//   moe_virtual_experts(5.0) 应 = 32（G=4 × K=8）
+//   moe_groups(5.0)          应 = 4
+//   curvature_gate(0.0)      应 = 0.5
+//   dual_fuse(1,1,0,1)       应 ≈ 6.23（σ(0)=0.5 对半：0.5·1 + 0.5·inversion(1)·polymer）
+//
+// 用返回值的十进制编码断言结果：
+//   千位 = experts==32 ? 1 : 0
+//   百位 = groups==4  ? 1 : 0
+//   十位 = gate≈0.5    ? 1 : 0
+//   个位 = fused 落在 (6,7) 区间 ? 1 : 0
+// 全部通过 → 返回 1111。
+@layer(time=0, thread=0, coord=(0))
+int32 rvdl_main() {
+    double pb = 5.0;
+    double experts = moe_virtual_experts(pb);
+    double groups  = moe_groups(pb);
+    double gate    = curvature_gate(0.0);
+    double fused   = dual_fuse(1.0, 1.0, 0.0, 1.0);
+
+    int32 r = 0;
+    if (experts > 31.0 && experts < 33.0) { r = r + 1000; }   // == 32
+    if (groups > 3.0 && groups < 5.0)     { r = r + 100; }    // == 4
+    if (gate > 0.49 && gate < 0.51)       { r = r + 10; }     // == 0.5
+    if (fused > 6.0 && fused < 7.0)       { r = r + 1; }      // ≈ 6.23
+
+    return r;
+}

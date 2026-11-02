@@ -1,0 +1,15 @@
+{
+  "variant": "ultra",
+  "description": "Ultra —— 前沿研究、全量能力。全激活 256 组件 + 深深度（4 分支 × 4 周期）。",
+  "model": "../models/jarvis_core.rvdl",
+  "pb": 5.0,
+  "equivalent_billions": 5000,
+  "moe": false,
+  "components": ["all-256"],
+  "cycles": 4,
+  "epochs": 40,
+  "learning_rate": 0.005,
+  "block_size": 64,
+  "rank": 8,
+  "quant_levels": 256
+}

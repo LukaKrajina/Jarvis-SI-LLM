@@ -1,0 +1,9 @@
+@layer(time=0, thread=0, coord=(0))
+int32 rvdl_main() {
+    double b = boltzmann2(1.0, 0.0, 0.0);   // 已知内建，应 0.5
+    double e = moe_virtual_experts(5.0);     // 新内建，应 32.0
+    int32 r = 0;
+    if (b > 0.4 && b < 0.6) { r = r + 10; }   // boltzmann2 OK → +10
+    if (e > 31.0)          { r = r + 100; }   // moe OK → +100
+    return r;                                  // 期望 110
+}
